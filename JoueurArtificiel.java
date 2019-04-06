@@ -67,14 +67,14 @@ public class JoueurArtificiel implements Joueur {
         for (int position : casesvides) {
             Etat courant = new Etat(initial);
             courant.genererSuccesseur(position / nbcol, position % nbcol);
-            // displayGroupes(courant.listeGroupes);
+            displayGroupes(courant.listeGroupes);
             listeEtats.add(courant);
         }
 
         Collections.sort(listeEtats);
 
         // System.out.println(listeEtats.size());
-        System.out.println("best: " + listeEtats.get(0).evalFunction());
+        // System.out.println("best: " + listeEtats.get(0).evalFunction());
     }
 
     private void displayGroupes(ArrayList<Groupe> listeGroupes) {

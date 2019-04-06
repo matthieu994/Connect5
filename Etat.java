@@ -53,11 +53,19 @@ public class Etat implements Comparable<Etat> {
                 Groupe newGroupe = noeuds[caseLigne][caseCol].groupes.get(Groupe.Type.SINGLE);
                 newGroupe.setType(adjacent.getValue());
                 newGroupe.ajouter(ligne, colonne);
+                noeuds[ligne][colonne] = new Noeud();
+                noeuds[ligne][colonne].ajouterGroupe(newGroupe);
                 continue;
             }
 
             for (Map.Entry<Groupe.Type, Groupe> groupe : noeuds[caseLigne][caseCol].groupes.entrySet()) {
-                // System.out.println(caseLigne + "," + caseCol + "  type: " + groupe.getKey());
+                if (groupe.getKey() == adjacent.getValue()) {
+                    Groupe newGroupe = noeuds[caseLigne][caseCol].groupes.get(groupe.getKey());
+                    newGroupe.ajouter(ligne, colonne);
+                    noeuds[ligne][colonne] = new Noeud();
+                    noeuds[ligne][colonne].ajouterGroupe(newGroupe);
+                }
+                // System.out.println(caseLigne + "," + caseCol + " type: " + groupe.getKey());
             }
         }
 
@@ -180,22 +188,16 @@ public class Etat implements Comparable<Etat> {
     }
 
     private void insertAdjacent(ArrayList<Map.Entry<Integer, Groupe.Type>> adjacents, int ligne, int colonne,
-            Groupe.Type type, Groupe.Type refType, boolean joueur) {
-        if (checkCase(ligne, colonne, type, refType, joueur))
-            adjacents.add(new SimpleEntry<>(ligne * grille[0].length + colonne, type));
-    }
-
-    private boolean checkCase(int ligne, int colonne, Groupe.Type type, Groupe.Type refType, boolean isJoueur) {
+            Groupe.Type type, Groupe.Type refType, boolean isJoueur) {
         int joueur = isJoueur ? this.joueur : this.adversaire;
 
         if (grille[ligne][colonne] != joueur) // Case n'appartient pas au joueur courant
-            return false;
+            return;
         if (refType != null && type != refType) // Case ne correspond pas au groupe courant
-            return false;
-        if (getNoeuds(isJoueur)[ligne][colonne] != null)
-            if (refType != null)
-                return false; // La case ne contient pas le groupe voulu
-        return true;
+            return;
+        if (getNoeuds(isJoueur)[ligne][colonne] != null && refType != null)
+            return; // La case ne contient pas le groupe voulu
+        adjacents.add(new SimpleEntry<>(ligne * grille[0].length + colonne, type));
     }
 
     public int evalFunction() {
@@ -231,6 +233,11 @@ public class Etat implements Comparable<Etat> {
                     "[" + adjacent.getKey() / grille[0].length + "," + adjacent.getKey() % grille[0].length + "]");
         }
         System.out.println(" }");
+    }
+
+    public void deepCopy(Etat autre) {
+        // Deep-Copier noeuds joueur et liste groupes
+        // Copier grille
     }
 
     @Override
