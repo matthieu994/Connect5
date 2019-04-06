@@ -38,6 +38,29 @@ public class Etat implements Comparable<Etat> {
 
     public Etat genererSuccesseur(int ligne, int colonne) {
         this.genererEtat();
+
+        ArrayList<Map.Entry<Integer, Groupe.Type>> adjacents = getAdjacents(ligne, colonne, null, true);
+        // System.out.println(ligne + "," + colonne + " adjacents: " +
+        // adjacents.size());
+
+        for (Map.Entry<Integer, Groupe.Type> adjacent : adjacents) {
+            int caseLigne = adjacent.getKey() / grille[0].length;
+            int caseCol = adjacent.getKey() % grille[0].length;
+
+            // Case adjacente est SINGLE
+            if (noeuds[caseLigne][caseCol].groupes.size() == 1
+                    && noeuds[caseLigne][caseCol].groupes.containsKey(Groupe.Type.SINGLE)) {
+                Groupe newGroupe = noeuds[caseLigne][caseCol].groupes.get(Groupe.Type.SINGLE);
+                newGroupe.setType(adjacent.getValue());
+                newGroupe.ajouter(ligne, colonne);
+                continue;
+            }
+
+            for (Map.Entry<Groupe.Type, Groupe> groupe : noeuds[caseLigne][caseCol].groupes.entrySet()) {
+                // System.out.println(caseLigne + "," + caseCol + "  type: " + groupe.getKey());
+            }
+        }
+
         return this;
     }
 
@@ -66,7 +89,8 @@ public class Etat implements Comparable<Etat> {
             return noeudsAdversaire;
     }
 
-    private void initGroupes(int ligne, int colonne, Groupe.Type refType, boolean joueur) {
+    private ArrayList<Map.Entry<Integer, Groupe.Type>> getAdjacents(int ligne, int colonne, Groupe.Type refType,
+            boolean joueur) {
         ArrayList<Map.Entry<Integer, Groupe.Type>> adjacents = new ArrayList<>();
 
         Noeud[][] noeuds = getNoeuds(joueur);
@@ -90,6 +114,14 @@ public class Etat implements Comparable<Etat> {
                 insertAdjacent(adjacents, ligne + 1, colonne + 1, Groupe.Type.DIAG_GAUCHE, refType, joueur);
         }
 
+        return adjacents;
+    }
+
+    private void initGroupes(int ligne, int colonne, Groupe.Type refType, boolean joueur) {
+        ArrayList<Map.Entry<Integer, Groupe.Type>> adjacents = getAdjacents(ligne, colonne, refType, joueur);
+
+        Noeud[][] noeuds = getNoeuds(joueur);
+
         Groupe groupe = new Groupe();
         if (adjacents.isEmpty()) {
             // System.out.print(refType + " : Noeud " + ligne + "," + colonne + " : ");
@@ -98,6 +130,8 @@ public class Etat implements Comparable<Etat> {
                 groupe.ajouter(ligne, colonne);
                 groupe.setType(Groupe.Type.SINGLE);
                 ajouterGroupe(groupe, joueur);
+                noeuds[ligne][colonne] = new Noeud();
+                noeuds[ligne][colonne].ajouterGroupe(groupe);
             }
             return;
         }
