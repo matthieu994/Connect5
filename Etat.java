@@ -7,7 +7,7 @@ import java.util.AbstractMap.SimpleEntry;
 import Connect5Game.Groupe;
 import Connect5Game.Noeud;
 
-public class Etat implements Comparable<Etat> {
+public class Etat {
     final byte[][] grille;
 
     public ArrayList<Groupe> listeGroupes;
@@ -32,8 +32,10 @@ public class Etat implements Comparable<Etat> {
         this.adversaire = (joueur == 1) ? 2 : 1;
     }
 
-    public Etat(Etat etat) {
-        this(etat.grille, etat.joueur);
+    // Pour créer un successeur
+    public Etat(Etat etat, int joueur) {
+        this(etat.grille, joueur);
+
     }
 
     public Etat genererSuccesseur(int ligne, int colonne) {
@@ -237,11 +239,5 @@ public class Etat implements Comparable<Etat> {
 
     public void deepCopy(Etat autre) {
         // Deep-Copier noeuds joueur et liste groupes
-        // Copier grille
-    }
-
-    @Override
-    public int compareTo(Etat autre) {
-        return this.evalFunction() - autre.evalFunction();
     }
 }
