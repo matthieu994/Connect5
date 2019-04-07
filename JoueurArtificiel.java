@@ -47,56 +47,93 @@ public class JoueurArtificiel implements Joueur {
 
         this.joueur = (count % 2) + 1;
 
-        Etat etatInitial = new Etat(grille.getData(), this.joueur);
-        etatInitial.genererEtat();
-
         // displayGroupes(etatInitial.listeGroupes);
         // displayGroupes(etatInitial.listeGroupesAdversaire);
 
-        return minimax(etatInitial, grille.getData(), Integer.MIN_VALUE, Integer.MAX_VALUE, true);
+        int profondeur = 1;
+        double bestValue = 0;
 
-        // int choix = random.nextInt(casesvides.size());
-        // choix = casesvides.get(choix);
-        // return new Position(choix / nbcol, choix % nbcol);
-    }
+        while (getTime() < this.delais) {
+            bestValue = minimax(grille.getData(), profondeur, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, true);
+            profondeur++;
+            // System.out.println(profondeur);
+        }
+        System.out.println("Profondeur: " + profondeur + " Valeur: " + bestValue);
 
-    private Position minimax(Etat initial, byte[][] grille, int alpha, int beta, boolean isJoueur) {
-        ArrayList<Integer> casesvides = getCasesVides(grille);
-        ArrayList<Pair<Etat, Position>> listeEtats = new ArrayList<>();
-        int nbcol = initial.grille[0].length;
+        Etat etatInitial = new Etat(grille.getData(), this.joueur);
+        etatInitial.genererEtat();
+        ArrayList<Integer> casesvides = getCasesVides(grille.getData());
+        ArrayList<Pair<Etat, Position>> listeSuccesseurs = getSuccesseurs(grille.getData(), casesvides, joueur);
 
-        for (int casevide : casesvides) {
-            Etat courant = new Etat(initial, getJoueur(isJoueur));
-            Position position = new Position(casevide / nbcol, casevide % nbcol);
-            courant.genererSuccesseur(position.ligne, position.colonne);
-            // displayGroupes(courant.listeGroupes);
-            // System.out.println("score: " + courant.evalFunction());
-            listeEtats.add(new Pair<>(courant, position));
+        for (Pair<Etat, Position> successeur : listeSuccesseurs) {
+            System.out.println("Successeur: " + successeur.getValue().ligne + "," + successeur.getValue().colonne
+                    + " : " + successeur.getKey().evalFunction());
+            if (successeur.getKey().evalFunction() == bestValue)
+                return successeur.getValue();
         }
 
-        Collections.sort(listeEtats, new Comparator<Pair<Etat, Position>>() {
-            public int compare(Pair<Etat, Position> e1, Pair<Etat, Position> e2) {
-                return e2.getKey().evalFunction() - e1.getKey().evalFunction();
+        int nbcol = grille.getData()[0].length;
+        int choix = random.nextInt(casesvides.size());
+        choix = casesvides.get(choix);
+        System.out.println("Random");
+        return new Position(choix / nbcol, choix % nbcol);
+    }
+
+    private double minimax(byte[][] grille, int profondeur, double alpha, double beta, boolean isJoueur) {
+        // Arreter si temps dépassé ou grille explorée
+        ArrayList<Integer> casesvides = getCasesVides(grille);
+
+        // Noeud est une feuille ou profondeur maximal atteinte
+        if (profondeur == 0 || casesvides.size() <= 1) {
+            Etat initial = new Etat(grille, getJoueur(isJoueur));
+            initial.genererEtat();
+            return initial.evalFunction();
+        }
+
+        double value;
+        byte[][] grilleCourant;
+        ArrayList<Pair<Etat, Position>> listeSuccesseurs = getSuccesseurs(grille, casesvides, getJoueur(isJoueur));
+
+        if (isJoueur) {
+            value = Double.NEGATIVE_INFINITY;
+            for (Pair<Etat, Position> successeur : listeSuccesseurs) {
+                grilleCourant = deepCopy(grille);
+                grilleCourant[successeur.getValue().ligne][successeur.getValue().colonne] = (byte) getJoueur(isJoueur);
+                value = Math.max(value, minimax(grilleCourant, profondeur - 1, alpha, beta, !isJoueur));
+                alpha = Math.max(alpha, value);
+                if (alpha >= beta)
+                    break;
             }
-        });
-
-        // System.out.println("taille: " + listeEtats.size());
-        // System.out.println("best: " + listeEtats.get(0).getKey().evalFunction());
-
-        grille[listeEtats.get(0).getValue().ligne][listeEtats.get(0).getValue().colonne] = (byte) getJoueur(isJoueur);
-
-        return listeEtats.get(0).getValue();
-        // if (getJoueur(isJoueur) == this.joueur) {
-        //     if (getTime() >= delais || casesvides.size() <= 2)
-        //         return listeEtats.get(0).getValue();
-        //     else
-        //         return minimax(listeEtats.get(0).getKey(), grille, alpha, beta, !isJoueur);
-        // } else
-        //     return minimax(listeEtats.get(0).getKey(), grille, alpha, beta, !isJoueur);
+            return value;
+        } else {
+            value = Double.POSITIVE_INFINITY;
+            for (Pair<Etat, Position> successeur : listeSuccesseurs) {
+                grilleCourant = deepCopy(grille);
+                grilleCourant[successeur.getValue().ligne][successeur.getValue().colonne] = (byte) getJoueur(isJoueur);
+                value = Math.min(value, minimax(grilleCourant, profondeur - 1, alpha, beta, !isJoueur));
+                beta = Math.min(beta, value);
+                if (alpha >= beta)
+                    break;
+            }
+            return value;
+        }
     }
 
     private long getTime() {
         return System.currentTimeMillis() - this.start;
+    }
+
+    private ArrayList<Pair<Etat, Position>> getSuccesseurs(byte[][] grille, ArrayList<Integer> casesvides, int joueur) {
+        ArrayList<Pair<Etat, Position>> listeSuccesseurs = new ArrayList<>();
+        int nbcol = grille[0].length;
+
+        for (int casevide : casesvides) {
+            Etat courant = new Etat(grille, joueur);
+            Position position = new Position(casevide / nbcol, casevide % nbcol);
+            courant.genererSuccesseur(position.ligne, position.colonne);
+            listeSuccesseurs.add(new Pair<>(courant, position));
+        }
+        return listeSuccesseurs;
     }
 
     private ArrayList<Integer> getCasesVides(byte[][] grille) {
@@ -119,6 +156,16 @@ public class JoueurArtificiel implements Joueur {
             return this.joueur;
         else
             return (this.joueur == 1) ? 2 : 1;
+    }
+
+    public static byte[][] deepCopy(byte[][] input) {
+        if (input == null)
+            return null;
+        byte[][] result = new byte[input.length][];
+        for (byte r = 0; r < input.length; r++) {
+            result[r] = input[r].clone();
+        }
+        return result;
     }
 
     public static void displayGroupes(ArrayList<Groupe> listeGroupes) {

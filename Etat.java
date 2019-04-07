@@ -32,12 +32,6 @@ public class Etat {
         this.adversaire = (joueur == 1) ? 2 : 1;
     }
 
-    // Pour créer un successeur
-    public Etat(Etat etat, int joueur) {
-        this(etat.grille, joueur);
-
-    }
-
     public Etat genererSuccesseur(int ligne, int colonne) {
         this.genererEtat();
 
