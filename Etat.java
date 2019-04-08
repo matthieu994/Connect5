@@ -32,12 +32,19 @@ public class Etat {
         this.adversaire = (joueur == 1) ? 2 : 1;
     }
 
-    public Etat genererSuccesseur(int ligne, int colonne) {
+    public Etat addPion(int ligne, int colonne) {
         this.genererEtat();
 
         ArrayList<Map.Entry<Integer, Groupe.Type>> adjacents = getAdjacents(ligne, colonne, null, true);
         // System.out.println(ligne + "," + colonne + " adjacents: " +
         // adjacents.size());
+        if (adjacents.isEmpty()) {
+            Groupe newGroupe = new Groupe(Groupe.Type.SINGLE);
+            newGroupe.ajouter(ligne, colonne);
+            noeuds[ligne][colonne] = new Noeud();
+            noeuds[ligne][colonne].ajouterGroupe(newGroupe);
+            listeGroupes.add(newGroupe);
+        }
 
         for (Map.Entry<Integer, Groupe.Type> adjacent : adjacents) {
             int caseLigne = adjacent.getKey() / grille[0].length;
