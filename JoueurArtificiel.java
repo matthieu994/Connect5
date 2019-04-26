@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.Random;
 import java.util.Map;
 import javafx.util.Pair;
+import java.util.AbstractMap.SimpleEntry;
 
 import Connect5Game.Grille;
 import Connect5Game.Joueur;
@@ -22,7 +23,7 @@ public class JoueurArtificiel implements Joueur {
     private long start; // Début fonction
     private long delais; // Délai de reflexion max
     private int joueur;
-    private Position bestMove;
+    private int profondeur = 3;
 
     /**
      * Voici la fonction à modifier. Évidemment, vous pouvez ajouter d'autres
@@ -48,107 +49,93 @@ public class JoueurArtificiel implements Joueur {
 
         this.joueur = (count % 2) + 1;
 
-        // displayGroupes(etatInitial.listeGroupes);
-        // displayGroupes(etatInitial.listeGroupesAdversaire);
+        Etat test = new Etat(grille.getData(), this.joueur);
+        System.out.println("Evaluation: " + test.evalFunction());
 
-        int profondeur = 2;
-        double bestValue = 0;
-        bestMove = new Position();
+        SimpleEntry<Double, Position> bestMove;
+        bestMove = minimax(grille.getData(), this.profondeur, -10000.0, 10000.0, true);
 
-        // while (getTime() < this.delais) {
-        bestValue = minimax(grille.getData(), profondeur, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, true);
-        // profondeur++;
-        // System.out.println(profondeur);
-        // }
-        System.out.println("Profondeur: " + profondeur + " Valeur: " + bestValue);
-        System.out.println("Meilleur coup: " + bestMove.toString());
-        if (bestMove != null)
-            return this.bestMove;
-
-        // Etat etatInitial = new Etat(grille.getData(), this.joueur);
-        // etatInitial.genererEtat();
-        ArrayList<Integer> casesvides = getCasesVides(grille.getData());
-        // ArrayList<Pair<Etat, Position>> listeSuccesseurs = getSuccesseurs(grille.getData(), casesvides, this.joueur);
-
-        // for (Pair<Etat, Position> successeur : listeSuccesseurs) {
-        //     // System.out.println("Successeur: " + successeur.getValue().ligne + "," +
-        //     // successeur.getValue().colonne
-        //     // + " : " + successeur.getKey().evalFunction());
-        //     displayGroupes(successeur.getKey().listeGroupes);
-        //     if (successeur.getKey().evalFunction() == bestValue)
-        //         return successeur.getValue();
-        // }
-
-        int nbcol = grille.getData()[0].length;
-        int choix = random.nextInt(casesvides.size());
-        choix = casesvides.get(choix);
-        System.out.println("Random");
-        return new Position(choix / nbcol, choix % nbcol);
+        if (bestMove != null && bestMove.getValue() != null) {
+            System.out.println(bestMove.getKey() + "   Meilleur coup: " + bestMove.getValue().toString());
+            return bestMove.getValue();
+        } else {
+            System.out.println("PLACEMENT RANDOM");
+            ArrayList<Position> casesvides = getCasesVides(grille.getData());
+            int choix = random.nextInt(casesvides.size());
+            return casesvides.get(choix);
+        }
     }
 
-    private double minimax(byte[][] grille, int profondeur, double alpha, double beta, boolean isJoueur) {
-        // Arreter si temps dépassé ou grille explorée
-        ArrayList<Integer> casesvides = getCasesVides(grille);
+    private SimpleEntry<Double, Position> minimax(byte[][] grille, int profondeur, double alpha, double beta,
+            boolean isJoueur) {
 
-        // Noeud est une feuille ou profondeur maximal atteinte
-        if (profondeur == 0 || casesvides.size() <= 1 || alpha > 1000) {
-            Etat initial = new Etat(grille, getJoueur(!isJoueur));
-            initial.genererEtat();
-            // System.out.println("Feuille: " + initial.evalFunction());
-            return initial.evalFunction();
+        // Profondeur max atteinte
+        if (profondeur == 0) {
+            Etat feuille = new Etat(grille, getJoueur(!isJoueur));
+            return new SimpleEntry<Double, Position>((double) feuille.evalFunction(), null);
         }
 
-        double value;
+        ArrayList<Position> casesVides = getCasesVides(grille);
+        // Noeud est une feuille
+        if (casesVides.isEmpty()) {
+            Etat feuille = new Etat(grille, getJoueur(!isJoueur));
+            return new SimpleEntry<Double, Position>((double) feuille.evalFunction(), null);
+        }
+
         byte[][] grilleCourant;
-        ArrayList<Pair<Etat, Position>> listeSuccesseurs = getSuccesseurs(grille, casesvides, getJoueur(isJoueur));
+        SimpleEntry<Double, Position> bestMove;
 
         if (isJoueur) {
-            value = Double.NEGATIVE_INFINITY;
-            for (Pair<Etat, Position> successeur : listeSuccesseurs) {
+            bestMove = new SimpleEntry<Double, Position>(-10000.0, null);
+            for (Position successeur : casesVides) {
                 grilleCourant = deepCopy(grille);
-                grilleCourant[successeur.getValue().ligne][successeur.getValue().colonne] = (byte) getJoueur(isJoueur);
-                value = Math.max(value, minimax(grilleCourant, profondeur - 1, alpha, beta, !isJoueur));
-                if (value >= beta) {
-                    this.bestMove = successeur.getValue();
-                    break;
+                grilleCourant[successeur.ligne][successeur.colonne] = (byte) getJoueur(isJoueur);
+                SimpleEntry<Double, Position> tempMove = minimax(grilleCourant, profondeur - 1, alpha, beta, !isJoueur);
+
+                if (tempMove.getKey() > alpha) {
+                    alpha = tempMove.getKey();
                 }
-                alpha = Math.max(alpha, value);
+                if (tempMove.getKey() >= beta) {
+                    return tempMove;
+                }
+                if (tempMove.getKey() > bestMove.getKey()) {
+                    bestMove = tempMove;
+                    bestMove.setValue(successeur);
+                }
             }
-            return value;
+            System.out.println(profondeur + ": " + isJoueur + ": best move: " + bestMove.getValue()
+                    + " : " + bestMove.getKey());
         } else {
-            value = Double.POSITIVE_INFINITY;
-            for (Pair<Etat, Position> successeur : listeSuccesseurs) {
+            bestMove = new SimpleEntry<Double, Position>(10000.0, casesVides.get(0));
+            for (Position successeur : casesVides) {
                 grilleCourant = deepCopy(grille);
-                grilleCourant[successeur.getValue().ligne][successeur.getValue().colonne] = (byte) getJoueur(isJoueur);
-                value = Math.min(value, minimax(grilleCourant, profondeur, alpha, beta, !isJoueur));
-                if (value <= alpha) {
-                    break;
+                grilleCourant[successeur.ligne][successeur.colonne] = (byte) getJoueur(isJoueur);
+                SimpleEntry<Double, Position> tempMove = minimax(grilleCourant, profondeur - 1, alpha, beta, !isJoueur);
+
+                if (tempMove.getKey() < beta) {
+                    beta = tempMove.getKey();
                 }
-                beta = Math.min(beta, value);
+                if (tempMove.getKey() <= alpha) {
+                    return tempMove;
+                }
+                if (tempMove.getKey() < bestMove.getKey()) {
+                    bestMove = tempMove;
+                    bestMove.setValue(successeur);
+                }
             }
-            return value;
+            System.out.println(profondeur + ": " + isJoueur + ": best move: " + bestMove.getValue()
+                    + " : " + bestMove.getKey());
         }
+
+        return bestMove;
     }
 
     private long getTime() {
         return System.currentTimeMillis() - this.start;
     }
 
-    private ArrayList<Pair<Etat, Position>> getSuccesseurs(byte[][] grille, ArrayList<Integer> casesvides, int joueur) {
-        ArrayList<Pair<Etat, Position>> listeSuccesseurs = new ArrayList<>();
-        int nbcol = grille[0].length;
-
-        for (int casevide : casesvides) {
-            Etat courant = new Etat(grille, joueur);
-            Position position = new Position(casevide / nbcol, casevide % nbcol);
-            courant.addPion(position.ligne, position.colonne);
-            listeSuccesseurs.add(new Pair<>(courant, position));
-        }
-        return listeSuccesseurs;
-    }
-
-    private ArrayList<Integer> getCasesVides(byte[][] grille) {
-        ArrayList<Integer> casesvides = new ArrayList<Integer>();
+    private ArrayList<Position> getCasesVides(byte[][] grille) {
+        ArrayList<Position> casesvides = new ArrayList<Position>();
 
         int nbligne = grille.length;
         int nbcol = grille[0].length;
@@ -156,7 +143,7 @@ public class JoueurArtificiel implements Joueur {
         for (int l = 0; l < nbligne; l++)
             for (int c = 0; c < nbcol; c++) {
                 if (grille[l][c] == 0)
-                    casesvides.add(l * nbcol + c);
+                    casesvides.add(new Position(l, c));
             }
 
         return casesvides;
@@ -177,6 +164,11 @@ public class JoueurArtificiel implements Joueur {
             result[r] = input[r].clone();
         }
         return result;
+    }
+
+    private int getScore(byte[][] grille, boolean isJoueur) {
+        Etat etat = new Etat(grille, getJoueur(isJoueur));
+        return etat.evalFunction();
     }
 
     public static void displayGroupes(ArrayList<Groupe> listeGroupes) {
