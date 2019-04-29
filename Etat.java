@@ -4,9 +4,6 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.AbstractMap.SimpleEntry;
 
-import Connect5Game.Groupe;
-import Connect5Game.Noeud;
-
 public class Etat {
     final byte[][] grille; // Grille courante
     private int joueur; // Contient le joueur courant

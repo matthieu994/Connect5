@@ -6,14 +6,12 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Random;
 import java.util.Map;
-import javafx.util.Pair;
 import java.util.AbstractMap.SimpleEntry;
 
 import Connect5Game.Grille;
 import Connect5Game.Joueur;
 import Connect5Game.Position;
-import Connect5Game.Noeud;
-import Connect5Game.Groupe;
+import Connect5Game.GrilleEtat;
 import Connect5Game.Etat;
 
 public class JoueurArtificiel implements Joueur {
@@ -23,14 +21,10 @@ public class JoueurArtificiel implements Joueur {
     private long start; // Début fonction
     private long delais; // Délai de reflexion max
     private int joueur;
-    private int profondeur = 3;
+    private int profondeur;
 
     /**
-     * Voici la fonction à modifier. Évidemment, vous pouvez ajouter d'autres
-     * fonctions dans JoueurArtificiel. Vous pouvez aussi ajouter d'autres classes,
-     * mais elles doivent être ajoutées dans le package planeteH_2.ia. Vous ne
-     * pouvez pas modifier les fichiers directement dans planeteH_2., car ils seront
-     * écrasés.
+     * Fonction à modifier
      * 
      * @param grille Grille reçu (état courant). Il faut ajouter le prochain coup.
      * @param delais Délais de rélexion en temps réel.
@@ -41,6 +35,7 @@ public class JoueurArtificiel implements Joueur {
         this.delais = delais;
         this.start = System.currentTimeMillis();
 
+        // Calcul des pierres pour obtenir le joueur courant et l'adversaire
         int count = 0;
         for (int l = 0; l < grille.getData().length; l++)
             for (int c = 0; c < grille.getData()[0].length; c++)
@@ -49,102 +44,112 @@ public class JoueurArtificiel implements Joueur {
 
         this.joueur = (count % 2) + 1;
 
-        Etat test = new Etat(grille.getData(), this.joueur);
-        System.out.println("Evaluation: " + test.evalFunction());
+        /*
+        * Si le joueur artificiel courant est le premier à jouer,
+        * on renvoie la meilleure position à une profondeur 1
+        */
+        if (count == 0)
+            this.profondeur = 2;
+        else
+            this.profondeur = 3;
 
-        SimpleEntry<Double, Position> bestMove;
-        bestMove = minimax(grille.getData(), this.profondeur, -10000.0, 10000.0, true);
+        // bestMove enregistre la meilleure position et l'évaluation correspondante
+        SimpleEntry<Integer, Position> bestMove = minimax(grille.getData(), this.profondeur, Integer.MIN_VALUE,
+                Integer.MAX_VALUE, true);
 
-        if (bestMove != null && bestMove.getValue() != null) {
-            System.out.println(bestMove.getKey() + "   Meilleur coup: " + bestMove.getValue().toString());
+        /*
+         * - Cas normal: On renvoie la meilleure position trouvée.
+         * - Dans le cas d'un bug non attendu : on renvoie une position aléatoire
+         */
+        if (bestMove.getValue().ligne >= 0)
             return bestMove.getValue();
-        } else {
-            System.out.println("PLACEMENT RANDOM");
+        else {
             ArrayList<Position> casesvides = getCasesVides(grille.getData());
             int choix = random.nextInt(casesvides.size());
             return casesvides.get(choix);
         }
     }
 
-    private SimpleEntry<Double, Position> minimax(byte[][] grille, int profondeur, double alpha, double beta,
+    /**
+    * Algorithme minimax
+    * 
+    * @param grille Grille reçu (état courant). Il faut ajouter le prochain coup.
+    * @param profondeur Profondeur courante.
+    * @param isJoueur Joueur dont on veut maximiser le coup.
+    * @return Retourne le meilleur coup calculé et l'évaluation correspondante.
+    */
+    private SimpleEntry<Integer, Position> minimax(byte[][] grille, int profondeur, int alpha, int beta,
             boolean isJoueur) {
 
-        // Profondeur max atteinte
-        if (profondeur == 0) {
-            Etat feuille = new Etat(grille, getJoueur(!isJoueur));
-            return new SimpleEntry<Double, Position>((double) feuille.evalFunction(), null);
-        }
-
         ArrayList<Position> casesVides = getCasesVides(grille);
-        // Noeud est une feuille
-        if (casesVides.isEmpty()) {
-            Etat feuille = new Etat(grille, getJoueur(!isJoueur));
-            return new SimpleEntry<Double, Position>((double) feuille.evalFunction(), null);
-        }
+        Position currentBest = new Position(-1, -1);
+        int evaluation;
+        boolean isMax = (getJoueur(isJoueur) == this.joueur);
 
-        byte[][] grilleCourant;
-        SimpleEntry<Double, Position> bestMove;
-
-        if (isJoueur) {
-            bestMove = new SimpleEntry<Double, Position>(-10000.0, null);
-            for (Position successeur : casesVides) {
-                grilleCourant = deepCopy(grille);
-                grilleCourant[successeur.ligne][successeur.colonne] = (byte) getJoueur(isJoueur);
-                SimpleEntry<Double, Position> tempMove = minimax(grilleCourant, profondeur - 1, alpha, beta, !isJoueur);
-
-                if (tempMove.getKey() > alpha) {
-                    alpha = tempMove.getKey();
-                }
-                if (tempMove.getKey() >= beta) {
-                    return tempMove;
-                }
-                if (tempMove.getKey() > bestMove.getKey()) {
-                    bestMove = tempMove;
-                    bestMove.setValue(successeur);
-                }
-            }
-            System.out.println(profondeur + ": " + isJoueur + ": best move: " + bestMove.getValue()
-                    + " : " + bestMove.getKey());
+        /*
+         * Aucune case n'est vide (partie terminée) ou la profondeur max est atteinte, 
+         * ou une configuration gagnante est trouvée :
+         * -> On renvoie l'evaluation de la grille courante pour le joueur artificiel,
+         * et la position (-1,-1).
+         * 
+         * Sinon: on itère sur la liste des cases vides
+         */
+        if (casesVides.isEmpty() || profondeur == 0) {
+            evaluation = GrilleEtat.evaluation(grille, (byte) getJoueur(true), (byte) getJoueur(false));
+            return new SimpleEntry<Integer, Position>(evaluation, currentBest);
         } else {
-            bestMove = new SimpleEntry<Double, Position>(10000.0, casesVides.get(0));
-            for (Position successeur : casesVides) {
-                grilleCourant = deepCopy(grille);
-                grilleCourant[successeur.ligne][successeur.colonne] = (byte) getJoueur(isJoueur);
-                SimpleEntry<Double, Position> tempMove = minimax(grilleCourant, profondeur - 1, alpha, beta, !isJoueur);
-
-                if (tempMove.getKey() < beta) {
-                    beta = tempMove.getKey();
+            for (Position position : casesVides) {
+                grille[position.ligne][position.colonne] = (byte) getJoueur(isJoueur);
+                // Le joueur dont on veut maximiser le coup est le joueur courant : MAX
+                if (isMax) {
+                    evaluation = minimax(grille, profondeur - 1, alpha, beta, !isJoueur).getKey();
+                    if (evaluation > alpha) {
+                        alpha = evaluation;
+                        currentBest = position;
+                    }
+                    // Le joueur dont on veut maximiser le coup est l'adversaire : MIN
+                } else {
+                    evaluation = minimax(grille, profondeur - 1, alpha, beta, !isJoueur).getKey();
+                    if (evaluation < beta) {
+                        beta = evaluation;
+                        currentBest = position;
+                    }
                 }
-                if (tempMove.getKey() <= alpha) {
-                    return tempMove;
-                }
-                if (tempMove.getKey() < bestMove.getKey()) {
-                    bestMove = tempMove;
-                    bestMove.setValue(successeur);
-                }
+                // On reset le dernier coup simulé dans la grille courante
+                grille[position.ligne][position.colonne] = 0;
+                // Élagage
+                if (alpha >= beta)
+                    break;
             }
-            System.out.println(profondeur + ": " + isJoueur + ": best move: " + bestMove.getValue()
-                    + " : " + bestMove.getKey());
         }
-
-        return bestMove;
+        // On retourne la meilleure position associée à l'évaluation correspondante au joueur (Max: alpha, Min: beta)
+        if (isMax)
+            return new SimpleEntry<Integer, Position>(alpha, currentBest);
+        else
+            return new SimpleEntry<Integer, Position>(beta, currentBest);
     }
 
+    // Retourne le temps écoulé depuis le début
     private long getTime() {
         return System.currentTimeMillis() - this.start;
     }
 
+    // Retourne la liste des cases vides disponibles
     private ArrayList<Position> getCasesVides(byte[][] grille) {
         ArrayList<Position> casesvides = new ArrayList<Position>();
+
+        // Si une configuration gagnante est trouvée
+        boolean winGrille = GrilleEtat.determineGagnant(grille);
+        if (winGrille)
+            return casesvides;
 
         int nbligne = grille.length;
         int nbcol = grille[0].length;
 
         for (int l = 0; l < nbligne; l++)
-            for (int c = 0; c < nbcol; c++) {
+            for (int c = 0; c < nbcol; c++)
                 if (grille[l][c] == 0)
                     casesvides.add(new Position(l, c));
-            }
 
         return casesvides;
     }
@@ -166,10 +171,10 @@ public class JoueurArtificiel implements Joueur {
         return result;
     }
 
-    private int getScore(byte[][] grille, boolean isJoueur) {
-        Etat etat = new Etat(grille, getJoueur(isJoueur));
-        return etat.evalFunction();
-    }
+    // private double getScore(byte[][] grille, boolean isJoueur) {
+    // Etat etat = new Etat(grille, getJoueur(isJoueur));
+    // return etat.evalFunction();
+    // }
 
     public static void displayGroupes(ArrayList<Groupe> listeGroupes) {
         if (listeGroupes == null)
