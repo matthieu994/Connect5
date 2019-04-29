@@ -19,7 +19,6 @@ public class JoueurArtificiel implements Joueur {
     private final Random random = new Random();
 
     private long start; // Début fonction
-    private long delais; // Délai de reflexion max
     private int joueur;
     private int profondeur;
 
@@ -32,7 +31,6 @@ public class JoueurArtificiel implements Joueur {
      */
     @Override
     public Position getProchainCoup(Grille grille, int delais) {
-        this.delais = delais;
         this.start = System.currentTimeMillis();
 
         // Calcul des pierres pour obtenir le joueur courant et l'adversaire
@@ -51,19 +49,28 @@ public class JoueurArtificiel implements Joueur {
         if (count == 0)
             this.profondeur = 2;
         else
-            this.profondeur = 3;
+            this.profondeur = 1;
 
-        // bestMove enregistre la meilleure position et l'évaluation correspondante
-        SimpleEntry<Integer, Position> bestMove = minimax(grille.getData(), this.profondeur, Integer.MIN_VALUE,
-                Integer.MAX_VALUE, true);
+        SimpleEntry<Integer, Position> bestMove;
+        
+        /* Approche iterative deepening
+        do {
+            bestMove = minimax(grille.getData(), this.profondeur, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
+            this.profondeur++;
+        } while (getTime() < delais); */
+
+        // Approche alternative
+        if(count != 0)
+            this.profondeur = 
 
         /*
          * - Cas normal: On renvoie la meilleure position trouvée.
          * - Dans le cas d'un bug non attendu : on renvoie une position aléatoire
          */
-        if (bestMove.getValue().ligne >= 0)
+        if (bestMove.getValue().ligne != -1)
             return bestMove.getValue();
         else {
+            System.out.println("-----RANDOM-----");
             ArrayList<Position> casesvides = getCasesVides(grille.getData());
             int choix = random.nextInt(casesvides.size());
             return casesvides.get(choix);
@@ -95,7 +102,7 @@ public class JoueurArtificiel implements Joueur {
          * Sinon: on itère sur la liste des cases vides
          */
         if (casesVides.isEmpty() || profondeur == 0) {
-            evaluation = GrilleEtat.evaluation(grille, (byte) getJoueur(true), (byte) getJoueur(false));
+            evaluation = GrilleEtat.evalFunction(grille, (byte) getJoueur(true), (byte) getJoueur(false));
             return new SimpleEntry<Integer, Position>(evaluation, currentBest);
         } else {
             for (Position position : casesVides) {
@@ -140,8 +147,10 @@ public class JoueurArtificiel implements Joueur {
 
         // Si une configuration gagnante est trouvée
         boolean winGrille = GrilleEtat.determineGagnant(grille);
-        if (winGrille)
+        if (winGrille) {
+            // System.out.println("config win");
             return casesvides;
+        }
 
         int nbligne = grille.length;
         int nbcol = grille[0].length;
