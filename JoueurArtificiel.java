@@ -57,15 +57,13 @@ public class JoueurArtificiel implements Joueur {
             this.profondeur++;
         } while (getTime(start) < delais); */
 
-        /* Approche alternative
+        /* Approche alternative selon un calcul estimatif
         * Pour delais = 2000 et grille: 14 => profondeur = 2
         * Pour delais = 2000 et grille: 12 => profondeur = 3
         * Pour delais = 2000 et grille: 7 => profondeur = 4
         */
         if (count != 0)
             this.profondeur = (int) Math.ceil(Math.log(delais / grille.nbLibre()));
-
-        System.out.println("profondeur: " + this.profondeur);
 
         bestMove = minimax(grille.getData(), this.profondeur, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
 
