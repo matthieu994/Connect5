@@ -18,7 +18,6 @@ public class JoueurArtificiel implements Joueur {
 
     private final Random random = new Random();
 
-    private long start; // Début fonction
     private int joueur;
     private int profondeur;
 
@@ -31,7 +30,7 @@ public class JoueurArtificiel implements Joueur {
      */
     @Override
     public Position getProchainCoup(Grille grille, int delais) {
-        this.start = System.currentTimeMillis();
+        long start = System.currentTimeMillis();
 
         // Calcul des pierres pour obtenir le joueur courant et l'adversaire
         int count = 0;
@@ -46,22 +45,29 @@ public class JoueurArtificiel implements Joueur {
         * Si le joueur artificiel courant est le premier à jouer,
         * on renvoie la meilleure position à une profondeur 1
         */
-        if (count == 0)
-            this.profondeur = 2;
-        else
-            this.profondeur = 1;
+        if (count <= 1)
+            return getCasesVides(grille.getData()).get(0);
 
         SimpleEntry<Integer, Position> bestMove;
-        
+
         /* Approche iterative deepening
+        this.profondeur = 1;
         do {
             bestMove = minimax(grille.getData(), this.profondeur, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
             this.profondeur++;
-        } while (getTime() < delais); */
+        } while (getTime(start) < delais); */
 
-        // Approche alternative
-        if(count != 0)
-            this.profondeur = 
+        /* Approche alternative
+        * Pour delais = 2000 et grille: 14 => profondeur = 2
+        * Pour delais = 2000 et grille: 12 => profondeur = 3
+        * Pour delais = 2000 et grille: 7 => profondeur = 4
+        */
+        if (count != 0)
+            this.profondeur = (int) Math.ceil(Math.log(delais / grille.nbLibre()));
+
+        System.out.println("profondeur: " + this.profondeur);
+
+        bestMove = minimax(grille.getData(), this.profondeur, Integer.MIN_VALUE, Integer.MAX_VALUE, true);
 
         /*
          * - Cas normal: On renvoie la meilleure position trouvée.
@@ -105,40 +111,53 @@ public class JoueurArtificiel implements Joueur {
             evaluation = GrilleEtat.evalFunction(grille, (byte) getJoueur(true), (byte) getJoueur(false));
             return new SimpleEntry<Integer, Position>(evaluation, currentBest);
         } else {
-            for (Position position : casesVides) {
-                grille[position.ligne][position.colonne] = (byte) getJoueur(isJoueur);
-                // Le joueur dont on veut maximiser le coup est le joueur courant : MAX
-                if (isMax) {
-                    evaluation = minimax(grille, profondeur - 1, alpha, beta, !isJoueur).getKey();
+            // Le joueur dont on veut maximiser le coup est le joueur courant : MAX
+            if (isMax) {
+                for (Position position : casesVides) {
+                    grille[position.ligne][position.colonne] = (byte) getJoueur(true);
+
+                    // Si le joueur artificiel peut jouer un coup gagnant, on le retourne immédiatement
+                    if (GrilleEtat.determineGagnant(grille, getJoueur(true)) && profondeur == this.profondeur)
+                        return new SimpleEntry<Integer, Position>(alpha, position);
+
+                    evaluation = minimax(grille, profondeur - 1, alpha, beta, false).getKey();
                     if (evaluation > alpha) {
                         alpha = evaluation;
                         currentBest = position;
                     }
-                    // Le joueur dont on veut maximiser le coup est l'adversaire : MIN
-                } else {
-                    evaluation = minimax(grille, profondeur - 1, alpha, beta, !isJoueur).getKey();
+                    // On reset le dernier coup simulé dans la grille courante
+                    grille[position.ligne][position.colonne] = 0;
+                    // Élagage
+                    if (alpha >= beta)
+                        break;
+                }
+                // On retourne la meilleure position associée à l'évaluation correspondante au joueur (Max: alpha, Min: beta)
+                return new SimpleEntry<Integer, Position>(alpha, currentBest);
+            } else {
+                // Le joueur dont on veut maximiser le coup est l'adversaire : MIN
+                for (Position position : casesVides) {
+                    grille[position.ligne][position.colonne] = (byte) getJoueur(false);
+
+                    evaluation = minimax(grille, profondeur - 1, alpha, beta, true).getKey();
                     if (evaluation < beta) {
                         beta = evaluation;
                         currentBest = position;
                     }
+                    // On reset le dernier coup simulé dans la grille courante
+                    grille[position.ligne][position.colonne] = 0;
+                    // Élagage
+                    if (alpha >= beta)
+                        break;
                 }
-                // On reset le dernier coup simulé dans la grille courante
-                grille[position.ligne][position.colonne] = 0;
-                // Élagage
-                if (alpha >= beta)
-                    break;
+                // On retourne la meilleure position associée à l'évaluation correspondante au joueur (Max: alpha, Min: beta)
+                return new SimpleEntry<Integer, Position>(beta, currentBest);
             }
         }
-        // On retourne la meilleure position associée à l'évaluation correspondante au joueur (Max: alpha, Min: beta)
-        if (isMax)
-            return new SimpleEntry<Integer, Position>(alpha, currentBest);
-        else
-            return new SimpleEntry<Integer, Position>(beta, currentBest);
     }
 
     // Retourne le temps écoulé depuis le début
-    private long getTime() {
-        return System.currentTimeMillis() - this.start;
+    private long getTime(long start) {
+        return System.currentTimeMillis() - start;
     }
 
     // Retourne la liste des cases vides disponibles
@@ -146,15 +165,16 @@ public class JoueurArtificiel implements Joueur {
         ArrayList<Position> casesvides = new ArrayList<Position>();
 
         // Si une configuration gagnante est trouvée
-        boolean winGrille = GrilleEtat.determineGagnant(grille);
+        boolean winGrille = GrilleEtat.determineGagnant(grille, 0);
         if (winGrille) {
-            // System.out.println("config win");
+            System.out.println("config win");
             return casesvides;
         }
 
         int nbligne = grille.length;
         int nbcol = grille[0].length;
 
+        // On ajoute toutes les cases disponibles
         for (int l = 0; l < nbligne; l++)
             for (int c = 0; c < nbcol; c++)
                 if (grille[l][c] == 0)
@@ -163,40 +183,14 @@ public class JoueurArtificiel implements Joueur {
         return casesvides;
     }
 
+    /**
+     * @return true: joueur courant,
+     *         false: adversaire
+     */
     private int getJoueur(boolean isJoueur) {
         if (isJoueur)
             return this.joueur;
         else
             return (this.joueur == 1) ? 2 : 1;
-    }
-
-    public static byte[][] deepCopy(byte[][] input) {
-        if (input == null)
-            return null;
-        byte[][] result = new byte[input.length][];
-        for (byte r = 0; r < input.length; r++) {
-            result[r] = input[r].clone();
-        }
-        return result;
-    }
-
-    // private double getScore(byte[][] grille, boolean isJoueur) {
-    // Etat etat = new Etat(grille, getJoueur(isJoueur));
-    // return etat.evalFunction();
-    // }
-
-    public static void displayGroupes(ArrayList<Groupe> listeGroupes) {
-        if (listeGroupes == null)
-            return;
-
-        for (Groupe groupe : listeGroupes) {
-            System.out.print("Groupe " + groupe.type + ":");
-            System.out.print("{ ");
-            for (Map.Entry<Integer, Integer> caseEntry : groupe.cases) {
-                System.out.print("[" + caseEntry.getKey() + "," + caseEntry.getValue() + "]");
-            }
-            System.out.println(" }");
-        }
-        System.out.println("-------------------------");
     }
 }
